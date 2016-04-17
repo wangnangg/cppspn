@@ -9,14 +9,45 @@
 #include <limits>
 #include <random>
 #include <functional>
+#include <chrono>
 
 namespace Statistics
 {
     double Ztable(double prob);
 
-    extern std::default_random_engine generator;
+    std::function<double(double uniform_rand_num)> Exp(double lambda);
 
-    std::function<double()> Exp(double lambda);
+    class UniformRandomNumberGenerator
+    {
+    public:
+        virtual double GetVariate() = 0;
+
+        ~UniformRandomNumberGenerator()
+        { }
+    };
+
+    class DefaultUniformRandomNumberGenerator : public UniformRandomNumberGenerator
+    {
+    private:
+        std::default_random_engine _generator;
+        std::uniform_real_distribution<double> _uniform_dist;
+    public:
+        ~DefaultUniformRandomNumberGenerator()
+        { }
+
+        virtual double GetVariate() override
+        {
+            return _uniform_dist(_generator);
+        }
+
+        DefaultUniformRandomNumberGenerator()
+        {
+            unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+            _generator.seed(seed);
+        }
+
+    };
+
 }
 
 

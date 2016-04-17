@@ -5,7 +5,7 @@
 #ifndef SPNP_SIMULATING_H
 #define SPNP_SIMULATING_H
 
-#include "PetriNetModel.h"
+#include "PetriNetModel/PetriNetModel.h"
 #include "Estimating.h"
 #include <memory>
 
@@ -16,54 +16,43 @@ namespace Simulating
     using namespace Estimating;
     using std::shared_ptr;
 
-
-    typedef void (*SimEventCallback)(const PetriNetDynamic &dynamic);
-
     class PetriNetSimulator
     {
     private:
-        shared_ptr<PetriNet> _petri_net;
-        PetriNetDynamic _current_dynamic;
+        PetriNet _petri_net;
         double _end_time;
-        const int _iteration_num;
-        int _iteration_count = 0;
+        RandomVariableEstimator &_steady_state_estimator;
+        RandomVariableEstimator &_transient_estimator;
+        size_t _source_index;
 
     public:
-        PetriNetSimulator(shared_ptr<PetriNet> petri_net, double end_time, int iteration_num)
-                : _petri_net(petri_net), _current_dynamic(petri_net->ForkInitDynamic()), _end_time(end_time),
-                  _iteration_num(iteration_num)
+        PetriNetSimulator(const PetriNet &petri_net,
+                          RandomVariableEstimator &steady_state_estimator,
+                          RandomVariableEstimator &transient_estimator,
+                          double end_time,
+                          size_t source_index)
+                : _petri_net(petri_net), _steady_state_estimator(steady_state_estimator),
+                  _transient_estimator(transient_estimator), _end_time(end_time), _source_index(source_index)
         { }
 
-        void Rewind()
+        // we require that _end_time < infinity
+        void Run(int iteration_num, UniformRandomNumberGenerator &generator)
         {
-            _iteration_count++;
-            if (_iteration_num > 0 && _iteration_count >= _iteration_num)
+            for (int i = 0; i < iteration_num; i++)
             {
-                throw EndOfSample();
+                _petri_net.Reset(generator);
+                while (_petri_net.NextFiringTime() < _end_time)
+                {
+                    _steady_state_estimator.InputSample(_source_index, _petri_net, _petri_net.StateDuration());
+                    _petri_net.NextState(generator);
+                }
+                _steady_state_estimator.InputSample(_source_index, _petri_net, _end_time - _petri_net.GetTime());
+                _transient_estimator.InputSample(_source_index, _petri_net, 1.0);
             }
-            _current_dynamic = _petri_net->ForkInitDynamic();
         }
 
-        void RunToEnd();
-
-        void RunToNextEvent();
-
-        const PetriNetDynamic &CurrentDynamic()
-        {
-            return _current_dynamic;
-        }
     };
 
-    class PetriNetSteadyStateSampler
-    {
-    private:
-        PetriNetSimulator _simulator;
-    public:
-        PetriNetSteadyStateSampler(const PetriNetSimulator &simulator) : _simulator(simulator)
-        { }
-
-        const PetriNetDynamic &NextSample();
-    };
 
 };
 

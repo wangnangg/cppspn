@@ -3,7 +3,7 @@
 //
 
 #include <gtest/gtest.h>
-#include "PetriNetModel.h"
+#include "PetriNetModel/PetriNetModel.h"
 #include "Statistics.h"
 
 using namespace PetriNetModel;
@@ -63,12 +63,12 @@ TEST(petri_net_model_test, creating)
     pn.AddArc("t3", "p3", ArcType::Input, 1);
     pn.AddArc("t3", "p1", ArcType::Output, 1);
 
-    std::cout << pn.ToString() << std::endl;
 }
 
 
 TEST(petri_net_model_test, firing)
 {
+    Statistics::DefaultUniformRandomNumberGenerator generator;
     PetriNet pn;
     pn.AddPlace("p1");
     pn.AddPlace("p2");
@@ -78,18 +78,15 @@ TEST(petri_net_model_test, firing)
     pn.AddArc("t1", "p2", ArcType::Output, 1);
     pn.AddArc("t2", "p2", ArcType::Input, 1);
     pn.AddArc("t2", "p1", ArcType::Output, 1);
-    std::cout << pn.ToString() << std::endl;
     pn.SetInitMark("p1", 1);
-    PetriNetDynamic dynamic = pn.ForkInitDynamic();
-    pn.PrepareToFire(dynamic);
-    pn.Fire(dynamic);
-    GTEST_ASSERT_EQ(pn.GetPlaceMark(dynamic, "p1"), 0);
-    GTEST_ASSERT_EQ(pn.GetPlaceMark(dynamic, "p2"), 1);
+    pn.Reset(generator);
+    pn.NextState(generator);
+    GTEST_ASSERT_EQ(pn.GetPlaceMark("p1"), 0);
+    GTEST_ASSERT_EQ(pn.GetPlaceMark("p2"), 1);
 
-    pn.PrepareToFire(dynamic);
-    pn.Fire(dynamic);
-    GTEST_ASSERT_EQ(pn.GetPlaceMark(dynamic, "p1"), 1);
-    GTEST_ASSERT_EQ(pn.GetPlaceMark(dynamic, "p2"), 0);
+    pn.NextState(generator);
+    GTEST_ASSERT_EQ(pn.GetPlaceMark("p1"), 1);
+    GTEST_ASSERT_EQ(pn.GetPlaceMark("p2"), 0);
 }
 
 

@@ -1,3 +1,4 @@
 unit_tests/googletest
 unit_tests/test.cpp
 .idea
+bin

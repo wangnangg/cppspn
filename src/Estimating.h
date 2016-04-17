@@ -16,6 +16,9 @@
 #include <memory>
 #include <thread>
 #include <sstream>
+#include <shared_mutex>
+#include <mutex>
+#include "PetriNetModel/PetriNetModel.h"
 
 namespace Estimating
 {
@@ -42,40 +45,25 @@ namespace Estimating
         }
 
         double Variance() const
-        {
-            return _variance_sum / _total_weight;
-        }
+        { return _variance_sum / _total_weight; }
 
         double AverageVariance() const
-        {
-            return Variance() / _total_weight;
-        }
+        { return Variance() / _total_weight; }
 
         double AverageStandardDeviation() const
-        {
-            return std::sqrt(AverageVariance());
-        };
+        { return std::sqrt(AverageVariance()); };
 
         double StandardDeviation() const
-        {
-            return std::sqrt(Variance());
-        }
+        { return std::sqrt(Variance()); }
 
         double VarianceSum() const
-        {
-            return _variance_sum;
-        }
+        { return _variance_sum; }
 
         double Average() const
-        {
-            return _average;
-        }
+        { return _average; }
 
         double TotalWeight() const
-        {
-            return _total_weight;
-        }
-
+        { return _total_weight; }
         SamplingSummary &operator+=(const SamplingSummary &rhs)
         {
             double _total_weight = this->TotalWeight() + rhs.TotalWeight();
@@ -89,16 +77,12 @@ namespace Estimating
             this->_variance_sum = _variance_sum;
             return *this;
         }
-
-
     };
-
     inline SamplingSummary operator+(SamplingSummary lhs, const SamplingSummary &rhs)
     {
         lhs += rhs;
         return lhs;
     }
-
     class ConfidenceInterval
     {
     private:
@@ -113,20 +97,16 @@ namespace Estimating
         }
 
         double LowerBound() const
-        {
-            return _summary.Average() - _summary.AverageStandardDeviation() * _z_abs;
-        }
+        { return _summary.Average() - _summary.AverageStandardDeviation() * _z_abs; }
 
         double UpperBound() const
-        {
-            return _summary.Average() + _summary.AverageStandardDeviation() * _z_abs;
-        }
+        { return _summary.Average() + _summary.AverageStandardDeviation() * _z_abs; }
+
+        double Median() const
+        { return _summary.Average(); }
 
         double Error() const
-        {
-            return _summary.AverageStandardDeviation() * _z_abs;
-        }
-
+        { return _summary.AverageStandardDeviation() * _z_abs; }
         double RelativeError() const
         {
             if (_summary.Average() == 0.0)
@@ -137,154 +117,89 @@ namespace Estimating
                 return Error() / _summary.Average();
             }
         }
-
         string ToString() const
         {
             ostringstream ss;
             ss << _summary.Average() << "±" << this->Error();
             return ss.str();
         }
-
-
     };
 
-    class TargetPrecision
+    template<typename SampleType>
+    class RandomVariableGeneric
+    {
+    public:
+        typedef std::function<bool(const SampleType &, double &)> RandomVariableFunc;
+    private:
+        const string _name;
+        const RandomVariableFunc _func;
+    public:
+        RandomVariableGeneric(const string &name, const RandomVariableFunc &func) : _name(name), _func(func)
+        { }
+
+        bool operator()(const SampleType &sample, double &value)
+        { return _func(sample, value); }
+
+        const string &GetName() const
+        { return _name; }
+    };
+
+
+    template<typename SampleType>
+    class RandomVariableEstimatorGeneric
     {
     private:
-        double _confidence_coefficient = 0.95;
-        double _error = 0.05;
-        enum ErrorType
-        {
-            Absolute,
-            Relative,
-            Infinite,
-        } _error_type = Relative;
-    public:
-        TargetPrecision()
-        { }
-
-        bool IsSatisfied(const ConfidenceInterval &interval) const
-        {
-            switch (_error_type)
-            {
-                case Infinite:
-                    return false;
-                case Absolute:
-                    return interval.Error() < _error;
-                case Relative:
-                    return interval.RelativeError() < _error;
-
-            }
-        }
-    };
-
-
-    class EndOfSample : public std::exception
-    {
-    };
-
-    template<typename SampleType, typename SamplerType>
-    class ExpectationEstimator
-    {
-    public:
-        typedef std::function<bool(const SampleType &, double &, double &)> RandomVariableFunc;
+        typedef vector<SamplingSummary> SummaryList;
+        typedef vector<SummaryList> SourceList;
+        vector<RandomVariableGeneric<SampleType>> _random_variable_list;
+        SourceList _source_list;
+        std::shared_timed_mutex _mutex;
+        SummaryList _result_summary_list;
     private:
-        SamplerType _sampler;
-        vector<pair<RandomVariableFunc, SamplingSummary>> _random_variable_list;
-        thread _current_worker;
-        bool _end_of_sample = false;
-
-        static void worker(ExpectationEstimator &estimator, int sample_count)
+        void AddNewSummary()
         {
-            try
+            for (SummaryList &summary_list: _source_list)
             {
-                if (sample_count > 0)
-                {
-                    estimator.Estimate(sample_count);
-                } else
-                {
-                    estimator.Estimate();
-                }
-            } catch (EndOfSample)
-            {
-                estimator._end_of_sample = true;
+                summary_list.push_back(SamplingSummary());
             }
-            estimator._end_of_sample = false;
-        }
-
-        void OneSample()
-        {
-            const SampleType &sample = _sampler.NextSample();
-            for (auto &&pair:_random_variable_list)
-            {
-                RandomVariableFunc &func = pair.first;
-                SamplingSummary &summary = pair.second;
-                double value, weight;
-                if (func(sample, value, weight))
-                {
-                    summary.AddNewSample(value, weight);
-                }
-            }
+            _result_summary_list.push_back(SamplingSummary());
         }
 
     public:
-        ExpectationEstimator(const SamplerType &sampler) : _sampler(sampler)
-        { }
-
-        ExpectationEstimator(const ExpectationEstimator<SampleType, SamplerType> &other) :
-                _sampler(other._sampler), _random_variable_list(other._random_variable_list)
-        { }
-
-        void AddRandomVariable(const RandomVariableFunc &random_variable)
+        RandomVariableEstimatorGeneric(size_t source_count) : _source_list(source_count)
         {
-            _random_variable_list.push_back(std::make_pair(random_variable, SamplingSummary{}));
         }
 
-        void Estimate(int sample_count)
+        void AddRandomVariable(const RandomVariableGeneric<SampleType> &random_variable)
         {
-            for (int i = 0; i < sample_count; i++)
-            {
-                OneSample();
-            }
+            _random_variable_list.push_back(random_variable);
+            AddNewSummary();
         }
 
-        void Estimate()
+        void InputSample(size_t source_index, const SampleType &sample, double weight);
+
+        void UpdateResult();
+
+        SamplingSummary GetResult(size_t rand_var_index) const
+        { return _result_summary_list[rand_var_index]; }
+
+        const string &GetRandomVariableName(size_t rand_var_index) const
         {
-            while (true)
-            {
-                try
-                {
-                    OneSample();
-                } catch (EndOfSample)
-                {
-                    break;
-                }
-            }
+            return _random_variable_list[rand_var_index].GetName();
         }
 
-        void EstimateAsync(int sample_count)
-        {
-            _current_worker = thread(worker, std::ref(*this), sample_count);
-        }
-
-        void EstimateAsync()
-        {
-            _current_worker = thread(worker, std::ref(*this), -1);
-        }
-
-        bool Wait()
-        {
-            _current_worker.join();
-            return !_end_of_sample;
-        }
-
-        SamplingSummary GetResult(int index)
-        {
-            return _random_variable_list[index].second;
-        }
-
+        size_t GetRandomVariableCount() const
+        { return _random_variable_list.size(); }
     };
 
+    template
+    class RandomVariableGeneric<PetriNetModel::PetriNet>;
+
+    template
+    class RandomVariableEstimatorGeneric<PetriNetModel::PetriNet>;
+
+    typedef RandomVariableGeneric<PetriNetModel::PetriNet> RandomVariable;
+    typedef RandomVariableEstimatorGeneric<PetriNetModel::PetriNet> RandomVariableEstimator;
 
 }
 
