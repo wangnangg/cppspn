@@ -29,7 +29,7 @@ namespace Estimating
     using std::thread;
     using std::ostringstream;
 
-    class SamplingSummary
+    class SamplingResult
     {
     private:
         double _variance_sum = 0;
@@ -64,7 +64,8 @@ namespace Estimating
 
         double TotalWeight() const
         { return _total_weight; }
-        SamplingSummary &operator+=(const SamplingSummary &rhs)
+
+        SamplingResult &operator+=(const SamplingResult &rhs)
         {
             double _total_weight = this->TotalWeight() + rhs.TotalWeight();
             double _average = this->Average() * this->TotalWeight() / _total_weight +
@@ -78,7 +79,8 @@ namespace Estimating
             return *this;
         }
     };
-    inline SamplingSummary operator+(SamplingSummary lhs, const SamplingSummary &rhs)
+
+    inline SamplingResult operator+(SamplingResult lhs, const SamplingResult &rhs)
     {
         lhs += rhs;
         return lhs;
@@ -86,11 +88,11 @@ namespace Estimating
     class ConfidenceInterval
     {
     private:
-        SamplingSummary _summary;
+        SamplingResult _summary;
         double _confidence_coefficient = 0.95;
         double _z_abs;
     public:
-        ConfidenceInterval(const SamplingSummary &summary) : _summary(summary)
+        ConfidenceInterval(const SamplingResult &summary) : _summary(summary)
         {
             double half_alpha = (1.0 - _confidence_coefficient) / 2.0;
             _z_abs = std::abs(Statistics::Ztable(half_alpha));
@@ -133,15 +135,26 @@ namespace Estimating
     private:
         const string _name;
         const RandomVariableFunc _func;
+        SamplingResult _result;
     public:
-        RandomVariableGeneric(const string &name, const RandomVariableFunc &func) : _name(name), _func(func)
+        RandomVariableGeneric(const string &name, const RandomVariableFunc &func) : _name(name), _func(func), _result()
         { }
 
-        bool operator()(const SampleType &sample, double &value)
+        bool operator()(const SampleType &sample, double &value) const
         { return _func(sample, value); }
 
         const string &GetName() const
         { return _name; }
+
+        const SamplingResult &GetSamplingResult() const
+        { return _result; }
+
+        void ClearResult()
+        { _result = SamplingResult(); }
+
+        void CombineResult(const SamplingResult &other)
+        { _result += other; }
+
     };
 
 
@@ -149,47 +162,76 @@ namespace Estimating
     class RandomVariableEstimatorGeneric
     {
     private:
-        typedef vector<SamplingSummary> SummaryList;
-        typedef vector<SummaryList> SourceList;
-        vector<RandomVariableGeneric<SampleType>> _random_variable_list;
+        typedef vector<SamplingResult> ResultList;
+        typedef vector<ResultList> SourceList;
+        typedef vector<RandomVariableGeneric<SampleType>> RandomVariableList;
+        RandomVariableList _random_variable_list;
         SourceList _source_list;
-        std::shared_timed_mutex _mutex;
-        SummaryList _result_summary_list;
+        vector<std::mutex> _source_mutex_list;
     private:
-        void AddNewSummary()
+        void AddNewResultToSource()
         {
-            for (SummaryList &summary_list: _source_list)
+            for (ResultList &result_list: _source_list)
             {
-                summary_list.push_back(SamplingSummary());
+                result_list.push_back(SamplingResult());
             }
-            _result_summary_list.push_back(SamplingSummary());
         }
 
     public:
-        RandomVariableEstimatorGeneric(size_t source_count) : _source_list(source_count)
+        typedef typename RandomVariableList::const_iterator const_iterator;
+        typedef typename RandomVariableList::iterator iterator;
+
+        iterator begin()
+        { return _random_variable_list.begin(); }
+
+        const_iterator begin() const
+        { return _random_variable_list.begin(); }
+
+        iterator end()
+        { return _random_variable_list.end(); }
+
+        const_iterator end() const
+        { return _random_variable_list.end(); }
+
+        RandomVariableEstimatorGeneric(size_t source_count) : _source_list(source_count),
+                                                              _source_mutex_list(source_count)
         {
         }
+
+        RandomVariableEstimatorGeneric(const RandomVariableEstimatorGeneric<SampleType> &) = delete;
 
         void AddRandomVariable(const RandomVariableGeneric<SampleType> &random_variable)
         {
             _random_variable_list.push_back(random_variable);
-            AddNewSummary();
+            AddNewResultToSource();
         }
 
+
+        std::mutex &GetSourceMutex(size_t source_index)
+        {
+            return _source_mutex_list[source_index];
+        }
+
+        //to input sample, the corresponding lock must be held.
         void InputSample(size_t source_index, const SampleType &sample, double weight);
 
-        void UpdateResult();
+        void ClearResult();
 
-        SamplingSummary GetResult(size_t rand_var_index) const
-        { return _result_summary_list[rand_var_index]; }
+        //to submit result, the corresponding lock must be held.
+        void SubmitResult(size_t source_index);
 
-        const string &GetRandomVariableName(size_t rand_var_index) const
+        const RandomVariableGeneric<SampleType> &GetRandomVariable(size_t rand_var_index) const
         {
-            return _random_variable_list[rand_var_index].GetName();
+            return _random_variable_list[rand_var_index];
         }
 
         size_t GetRandomVariableCount() const
         { return _random_variable_list.size(); }
+
+
+
+
+
     };
 
     template

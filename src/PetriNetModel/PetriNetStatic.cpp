@@ -6,7 +6,7 @@
 namespace PetriNetModel
 {
 
-    void PetriNetStatic::AddPlace(const string &name)
+    size_t PetriNetStatic::AddPlace(const string &name)
     {
         if (HasName(name, _place_name_map))
         {
@@ -16,6 +16,7 @@ namespace PetriNetModel
         _place_name_map[name] = place_index;
         _place_list.push_back(Place(name, place_index));
         _init_state.AddMark();
+        return place_index;
     }
 
     void PetriNetStatic::AddTransition(const string &name, FiringTimeFuncType firing_time_func)

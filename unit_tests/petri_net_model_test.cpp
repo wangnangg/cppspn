@@ -5,8 +5,7 @@
 #include <gtest/gtest.h>
 #include "PetriNetModel/PetriNetModel.h"
 #include "Statistics.h"
-
-using namespace PetriNetModel;
+#include "helper.h"
 
 
 TEST(petri_net_model_test, duplicate_place_name)
@@ -69,16 +68,7 @@ TEST(petri_net_model_test, creating)
 TEST(petri_net_model_test, firing)
 {
     Statistics::DefaultUniformRandomNumberGenerator generator;
-    PetriNet pn;
-    pn.AddPlace("p1");
-    pn.AddPlace("p2");
-    pn.AddTransition("t1", Statistics::Exp(0.5));
-    pn.AddTransition("t2", Statistics::Exp(0.6));
-    pn.AddArc("t1", "p1", ArcType::Input, 1);
-    pn.AddArc("t1", "p2", ArcType::Output, 1);
-    pn.AddArc("t2", "p2", ArcType::Input, 1);
-    pn.AddArc("t2", "p1", ArcType::Output, 1);
-    pn.SetInitMark("p1", 1);
+    PetriNet pn = SimplePetriNet();
     pn.Reset(generator);
     pn.NextState(generator);
     GTEST_ASSERT_EQ(pn.GetPlaceMark("p1"), 0);

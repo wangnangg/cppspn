@@ -123,7 +123,7 @@ namespace PetriNetModel
         void SetTime(double t)
         { _time = t; }
 
-        Mark SetMark(size_t p_index, Mark m)
+        void SetMark(size_t p_index, Mark m)
         { _mark_list[p_index] = m; }
 
         Mark GetMark(size_t p_index) const
@@ -168,7 +168,7 @@ namespace PetriNetModel
 
         PetriNetStatic(const PetriNetStatic &petri_net_static) = delete;
 
-        void AddPlace(const string &name);
+        size_t AddPlace(const string &name);
 
         void SetInitMark(const string &p_name, Mark mark);
 
@@ -217,8 +217,8 @@ namespace PetriNetModel
         }
 
         //construction phase
-        void AddPlace(const string &name)
-        { _petri_net_static->AddPlace(name); }
+        size_t AddPlace(const string &name)
+        { return _petri_net_static->AddPlace(name); }
 
         void SetInitMark(const string &p_name, Mark mark)
         { _petri_net_static->SetInitMark(p_name, mark); }
@@ -249,7 +249,7 @@ namespace PetriNetModel
         }
 
         size_t GetPlaceIndex(const string &name) const
-        { _petri_net_static->GetPlaceIndex(name); }
+        { return _petri_net_static->GetPlaceIndex(name); }
 
         void NextState(UniformRandomNumberGenerator &generator);
 

@@ -3,7 +3,6 @@
 //
 
 #include "Estimating.h"
-
 using std::function;
 namespace Estimating
 {
@@ -11,34 +10,36 @@ namespace Estimating
     void RandomVariableEstimatorGeneric<SampleType>::InputSample(size_t source_index, const SampleType &sample,
                                                                  double weight)
     {
-        SummaryList &summary_list = _source_list[source_index];
-        std::shared_lock<std::shared_timed_mutex> lock(_mutex);
+        ResultList &result_list = _source_list[source_index];
         for (size_t rand_index = 0; rand_index < _random_variable_list.size(); rand_index++)
         {
-            RandomVariableGeneric<SampleType> &rand_variable = _random_variable_list[rand_index];
-            SamplingSummary &summary = summary_list[rand_index];
+            const RandomVariableGeneric<SampleType> &rand_variable = GetRandomVariable(rand_index);
+            SamplingResult &result = result_list[rand_index];
             double value;
             if (rand_variable(sample, value))
             {
-                summary.AddNewSample(value, weight);
+                result.AddNewSample(value, weight);
             }
         }
     }
 
+
     template<typename SampleType>
-    void RandomVariableEstimatorGeneric<SampleType>::UpdateResult()
+    void RandomVariableEstimatorGeneric<SampleType>::ClearResult()
     {
-        std::unique_lock<std::shared_timed_mutex> lock(_mutex);
-        for (SamplingSummary &summary : _result_summary_list)
+        for (auto &rand_var:_random_variable_list)
         {
-            summary = SamplingSummary();
-        }
-        for (size_t rand_index = 0; rand_index < _random_variable_list.size(); rand_index++)
-        {
-            for (size_t source_index = 0; source_index < _source_list.size(); source_index++)
-            {
-                _result_summary_list[rand_index] += _source_list[source_index][rand_index];
-            }
+            rand_var.ClearResult();
         }
     }
+
+    template<typename SampleType>
+    void RandomVariableEstimatorGeneric<SampleType>::SubmitResult(size_t source_index)
+    {
+        for (size_t rand_index = 0; rand_index < _random_variable_list.size(); rand_index++)
+        {
+            _random_variable_list[rand_index].CombineResult(_source_list[source_index][rand_index]);
+        }
+    }
+
 }

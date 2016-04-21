@@ -46,6 +46,11 @@ namespace Statistics
             _generator.seed(seed);
         }
 
+        DefaultUniformRandomNumberGenerator(unsigned long seed)
+        {
+            _generator.seed(seed);
+        }
+
     };
 
 }

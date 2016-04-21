@@ -59,7 +59,7 @@ namespace PetriNetModel
 
     void PetriNet::FindNextFiringTransition(UniformRandomNumberGenerator &generator)
     {
-        size_t firing_t_index;
+        size_t firing_t_index = 0;
         double firing_time = std::numeric_limits<double>::infinity();
         size_t t_count = _petri_net_static->GetTransitionCount();
         for (size_t t_index = 0; t_index < t_count; t_index++)

@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(spnp)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-SET(CMAKE_C_FLAGS_DEBUG "-D_DEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 
 add_subdirectory(unit_tests)
 
