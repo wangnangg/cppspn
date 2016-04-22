@@ -16,9 +16,9 @@ namespace Simulating
             _petri_net.Reset(generator);
 
             std::unique_lock<std::mutex> steady_unique_lock(_steady_state_estimator.GetSourceMutex(_source_index));
-            while (_petri_net.NextFiringTime() < _end_time)
+            while (_petri_net.GetNextFiringTime() < _end_time)
             {
-                _steady_state_estimator.InputSample(_source_index, _petri_net, _petri_net.StateDuration());
+                _steady_state_estimator.InputSample(_source_index, _petri_net, _petri_net.GetDuration());
                 _petri_net.NextState(generator);
             }
             _steady_state_estimator.InputSample(_source_index, _petri_net, _end_time - _petri_net.GetTime());
@@ -47,7 +47,8 @@ namespace Simulating
         uint32_t iteration_per_worker = interation_count / (uint32_t) _simulator_count;
         for (uint32_t i = 0; i < _simulator_count; i++)
         {
-            _simulator_list.push_back(PetriNetSimulator(_template_simulator, i));
+            _simulator_list.push_back(
+                    PetriNetSimulator(_creator, _steady_state_estimator, _transient_estimator, _end_time, i));
             _generator_list.push_back(DefaultUniformRandomNumberGenerator());
         }
         for (uint32_t i = 0; i < _simulator_count; i++)
@@ -93,9 +94,9 @@ namespace Simulating
         return ss.str();
     }
 
-    bool SimulatorController::Wait()
+    bool SimulatorController::WaitFor(double seconds)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t) (_poll_time * 1000)));
+        std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t) (seconds * 1000)));
         _simulator.UpdateResult();
         if (IsPrecisionSatisfied())
         {

@@ -10,6 +10,9 @@ include_directories(src)
 set(SOURCE_FILES src/Estimating.cpp src/Estimating.h
         src/Simulating.cpp src/Simulating.h
         src/Statistics.h src/Statistics.cpp
-        src/PetriNetModel/PetriNetModel.h src/PetriNetModel/PetriNetStatic.cpp src/PetriNetModel/PetriNet.cpp)
+        src/PetriNetModel/PetriNetModel.h
+        src/PetriNetModel/PetriNet.cpp
+        src/PetriNetModel/PetriNetCreator.cpp
+        src/PetriNetModel/Transition.cpp)
 add_library(spnp ${SOURCE_FILES})
 

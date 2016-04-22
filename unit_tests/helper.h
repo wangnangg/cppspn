@@ -10,8 +10,13 @@ void StartClock();
 
 double StopClock();
 
-PetriNet SimplePetriNet();
+bool IsOnP1(const PetriNet &petri_net, double &value);
 
-extern size_t p1_uid;
-extern size_t p2_uid;
+PetriNetCreator SimplePetriNet();
+
+bool UserUnavail(const PetriNet &petri_net, double &value);
+
+PetriNetCreator ComplexPetriNet();
+
+string GetStateName(const PetriNet &pn);
 

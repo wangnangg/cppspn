@@ -44,7 +44,7 @@ namespace Statistics
                                            1.34075503369, 1.40507156031, 1.47579102818, 1.5547735946, 1.64485362695,
                                            1.75068607125, 1.88079360815, 2.05374891063, 2.32634787404,
                                            std::numeric_limits<double>::infinity()};
-        int percentile = std::lround(prob * 100);
+        long percentile = std::lround(prob * 100);
         if (percentile >= 100)
         {
             percentile = 99;
@@ -59,6 +59,31 @@ namespace Statistics
     {
         return [lambda](double p)
         { return -std::log(1 - p) / lambda; };
+    }
+
+    std::function<double(double uniform_rand_num)> ParetoTrunc(double alpha, double m, double n)
+    {
+        return [alpha, m, n](double p)
+        {
+            double c = 1.0 / (1.0 - std::pow(m / n, alpha));
+            return m / std::pow(1.0 - p / c, 1.0 / alpha);
+        };
+    }
+
+    std::function<double(double uniform_rand_num)> Weibull(double k, double theta)
+    {
+        return [k, theta](double p)
+        {
+            return theta * std::pow(std::log(1.0 / (1.0 - p)), 1.0 / k);
+        };
+    }
+
+    std::function<double(double uniform_rand_num)> Deterministic(double t)
+    {
+        return [t](double p)
+        {
+            return t;
+        };
     }
 
 }

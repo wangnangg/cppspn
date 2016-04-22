@@ -9,72 +9,52 @@ namespace PetriNetModel
 {
     void PetriNet::NextState(UniformRandomNumberGenerator &generator)
     {
-        if (_current_state.StateDuration() == std::numeric_limits<double>::infinity())
+        if (_firing_transition == nullptr)
         {
             return;
         }
-        Fire();
+        _firing_transition->Fire();
+        _time = _next_firing_time;
         FindNextFiringTransition(generator);
     }
 
-    bool PetriNet::IsTransitionEnabled(size_t t_index) const
+    void PetriNet::Reset(UniformRandomNumberGenerator &generator)
     {
-        const Transition &trans = _petri_net_static->GetTransition(t_index);
-        for (int arc_index : trans._input_arcs)
+        for (auto &place:_place_list)
         {
-            const Arc &arc = _petri_net_static->GetArc(arc_index);
-            Mark place_mark = _current_state.GetMark(arc._place_index);
-            if (arc._multiplicity > place_mark)
-            {
-                return false;
-            }
+            place.Reset();
         }
-        for (int arc_index : trans._inhibitor_arcs)
+        for (auto &trans:_transition_list)
         {
-            const Arc &arc = _petri_net_static->GetArc(arc_index);
-            Mark place_mark = _current_state.GetMark(arc._place_index);
-            if (arc._multiplicity < place_mark)
-            {
-                return false;
-            }
+            trans.Reset();
         }
-        return true;
-    }
+        _time = 0.0;
+        _next_firing_time = 0.0;
+        _firing_transition = nullptr;
 
-    void PetriNet::Fire()
-    {
-        size_t t_index = _current_state.GetFiringTransitionIndex();
-        const Transition &trans = _petri_net_static->GetTransition(t_index);
-        for (size_t arc_index : trans._input_arcs)
-        {
-            const Arc &arc = _petri_net_static->GetArc(arc_index);
-            _current_state.ModifyMark(arc._place_index, -arc._multiplicity);
-        }
-        for (size_t arc_index : trans._output_arcs)
-        {
-            const Arc &arc = _petri_net_static->GetArc(arc_index);
-            _current_state.ModifyMark(arc._place_index, arc._multiplicity);
-        }
+        FindNextFiringTransition(generator);
     }
 
     void PetriNet::FindNextFiringTransition(UniformRandomNumberGenerator &generator)
     {
-        size_t firing_t_index = 0;
+        Transition *firing_transition = nullptr;
         double firing_time = std::numeric_limits<double>::infinity();
-        size_t t_count = _petri_net_static->GetTransitionCount();
-        for (size_t t_index = 0; t_index < t_count; t_index++)
+        for (auto &transition:_transition_list)
         {
-            if (IsTransitionEnabled(t_index))
+            transition.InputArcChanged(_time, generator.GetVariate());
+            double time = transition.GetFireTime();
+            if (time < 0) //disabled
             {
-                double time = _petri_net_static->GetFiringTimeSample(t_index, generator.GetVariate());
-                if (time < firing_time)
-                {
-                    firing_time = time;
-                    firing_t_index = t_index;
-                }
+                continue;
+            }
+            if (time < firing_time)
+            {
+                firing_time = time;
+                firing_transition = &transition;
             }
         }
-        _current_state.SetNextFiring(firing_time, firing_t_index);
+        _next_firing_time = firing_time;
+        _firing_transition = firing_transition;
     }
 
 }

@@ -10,11 +10,11 @@
 
 TEST(petri_net_model_test, duplicate_place_name)
 {
-    PetriNet pn;
-    pn.AddPlace("ppp");
+    PetriNetCreator creator;
+    creator.AddPlace("ppp", 1);
     try
     {
-        pn.AddPlace("ppp");
+        creator.AddPlace("ppp", 1);
         FAIL();
     } catch (DuplicateName)
     {
@@ -28,11 +28,11 @@ TEST(petri_net_model_test, duplicate_place_name)
 
 TEST(petri_net_model_test, duplicate_trans_name)
 {
-    PetriNet pn;
-    pn.AddTransition("ppp", Statistics::Exp(1.0));
+    PetriNetCreator creator;
+    creator.AddTransition("ppp", Statistics::Exp(1.0));
     try
     {
-        pn.AddTransition("ppp", Statistics::Exp(1.0));
+        creator.AddTransition("ppp", Statistics::Exp(1.0));
         FAIL();
     } catch (DuplicateName)
     {
@@ -46,29 +46,31 @@ TEST(petri_net_model_test, duplicate_trans_name)
 
 TEST(petri_net_model_test, creating)
 {
-    PetriNet pn;
-    pn.AddPlace("p1");
-    pn.AddPlace("p2");
-    pn.AddPlace("p3");
+    PetriNetCreator creator;
+    creator.AddPlace("p1", 1);
+    creator.AddPlace("p2", 0);
+    creator.AddPlace("p3", 0);
 
-    pn.AddTransition("t1", Statistics::Exp(0.5));
-    pn.AddTransition("t2", Statistics::Exp(0.5));
-    pn.AddTransition("t3", Statistics::Exp(0.5));
+    creator.AddTransition("t1", Statistics::Exp(0.5));
+    creator.AddTransition("t2", Statistics::Exp(0.5));
+    creator.AddTransition("t3", Statistics::Exp(0.5));
 
-    pn.AddArc("t1", "p1", ArcType::Input, 3);
-    pn.AddArc("t1", "p2", ArcType::Output, 2);
-    pn.AddArc("t2", "p2", ArcType::Input, 1);
-    pn.AddArc("t2", "p3", ArcType::Output, 1);
-    pn.AddArc("t3", "p3", ArcType::Input, 1);
-    pn.AddArc("t3", "p1", ArcType::Output, 1);
+    creator.AddArc("t1", "p1", Arc::Type::Input, 3);
+    creator.AddArc("t1", "p2", Arc::Type::Output, 2);
+    creator.AddArc("t2", "p2", Arc::Type::Input, 1);
+    creator.AddArc("t2", "p3", Arc::Type::Output, 1);
+    creator.AddArc("t3", "p3", Arc::Type::Input, 1);
+    creator.AddArc("t3", "p1", Arc::Type::Output, 1);
 
+    creator.Commit();
 }
 
 
 TEST(petri_net_model_test, firing)
 {
     Statistics::DefaultUniformRandomNumberGenerator generator;
-    PetriNet pn = SimplePetriNet();
+    PetriNetCreator creator = SimplePetriNet();
+    PetriNet pn = creator.CreatePetriNet();
     pn.Reset(generator);
     pn.NextState(generator);
     GTEST_ASSERT_EQ(pn.GetPlaceMark("p1"), 0);
@@ -77,6 +79,28 @@ TEST(petri_net_model_test, firing)
     pn.NextState(generator);
     GTEST_ASSERT_EQ(pn.GetPlaceMark("p1"), 1);
     GTEST_ASSERT_EQ(pn.GetPlaceMark("p2"), 0);
+}
+
+TEST(petri_net_model_test, complex_firing)
+{
+    Statistics::DefaultUniformRandomNumberGenerator generator;
+    PetriNetCreator creator = ComplexPetriNet();
+    auto pn = creator.CreatePetriNet();
+    pn.Reset(generator);
+
+    for (int i = 0; i < 100; i++)
+    {
+        std::cout << GetStateName(pn) << std::endl;
+        std::cout << pn.GetDuration() << std::endl << std::endl;
+        pn.NextState(generator);
+        auto mF = pn.GetPlaceMark("pF");
+        auto mA = pn.GetPlaceMark("pA");
+        auto mT = pn.GetPlaceMark("pT");
+        auto mU = pn.GetPlaceMark("pU");
+        auto mD = pn.GetPlaceMark("pD");
+        GTEST_ASSERT_EQ(mF + mA + mT, 1);
+        GTEST_ASSERT_EQ(mU + mD, 1);
+    }
 }
 
 

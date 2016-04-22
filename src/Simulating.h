@@ -27,21 +27,13 @@ namespace Simulating
         bool _stop = false;
         bool _running = false;
     public:
-        PetriNetSimulator(const PetriNet &petri_net,
+        PetriNetSimulator(const PetriNetCreator &creator,
                           RandomVariableEstimator &steady_state_estimator,
                           RandomVariableEstimator &transient_estimator,
                           double end_time,
                           size_t source_index)
-                : _petri_net(petri_net), _steady_state_estimator(steady_state_estimator),
+                : _petri_net(creator.CreatePetriNet()), _steady_state_estimator(steady_state_estimator),
                   _transient_estimator(transient_estimator), _end_time(end_time), _source_index(source_index)
-        { }
-
-        PetriNetSimulator(const PetriNetSimulator &simulator, size_t source_index) :
-                _petri_net(simulator._petri_net),
-                _steady_state_estimator(simulator._steady_state_estimator),
-                _transient_estimator(simulator._transient_estimator),
-                _end_time(simulator._end_time),
-                _source_index(source_index)
         { }
 
         void Run(int iteration_num, UniformRandomNumberGenerator &generator);
@@ -78,16 +70,17 @@ namespace Simulating
         size_t _simulator_count;
         RandomVariableEstimator _steady_state_estimator;
         RandomVariableEstimator _transient_estimator;
-        PetriNetSimulator _template_simulator;
         vector<PetriNetSimulator> _simulator_list;
         vector<DefaultUniformRandomNumberGenerator> _generator_list;
+        const PetriNetCreator &_creator;
+        double _end_time;
     public:
-        PetriNetMultiSimulator(const PetriNet &petri_net,
+        PetriNetMultiSimulator(const PetriNetCreator &creator,
                                size_t simulator_count,
                                double end_time) :
                 _simulator_count(simulator_count),
                 _steady_state_estimator(simulator_count), _transient_estimator(simulator_count),
-                _template_simulator(petri_net, _steady_state_estimator, _transient_estimator, end_time, 0)
+                _creator(creator), _end_time(end_time)
         { }
 
         PetriNetMultiSimulator(const PetriNetMultiSimulator &) = delete;
@@ -172,22 +165,10 @@ namespace Simulating
             switch (_type)
             {
                 case Relative:
-                    if (interval.RelativeError() < _precision)
-                    {
-                        satisfied = true;
-                    } else
-                    {
-                        satisfied = false;
-                    }
+                    satisfied = interval.RelativeError() < _precision;
                     break;
                 case Absolute:
-                    if (interval.Error() < _precision)
-                    {
-                        satisfied = true;
-                    } else
-                    {
-                        satisfied = false;
-                    }
+                    satisfied = interval.Error() < _precision;
                     break;
                 case Inf:
                     satisfied = false;
@@ -201,13 +182,11 @@ namespace Simulating
     class SimulatorController
     {
         PetriNetMultiSimulator &_simulator;
-        double _poll_time;
         TargetPrecision _precision;
     public:
         SimulatorController(PetriNetMultiSimulator &simulator,
-                            double poll_time,
                             TargetPrecision precision = TargetPrecision(TargetPrecision::Inf, 0.0))
-                : _simulator(simulator), _poll_time(poll_time), _precision(precision)
+                : _simulator(simulator), _precision(precision)
         { }
 
         void Start(uint32_t max_interation_count)
@@ -215,7 +194,7 @@ namespace Simulating
             _simulator.RunAsync(max_interation_count);
         }
 
-        bool Wait();
+        bool WaitFor(double seconds);
 
         string ResultToString() const;
 

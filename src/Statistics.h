@@ -17,12 +17,19 @@ namespace Statistics
 
     std::function<double(double uniform_rand_num)> Exp(double lambda);
 
+    std::function<double(double uniform_rand_num)> ParetoTrunc(double alpha, double m, double n);
+
+    std::function<double(double uniform_rand_num)> Weibull(double k, double theta);
+
+    std::function<double(double uniform_rand_num)> Deterministic(double t);
+
+
     class UniformRandomNumberGenerator
     {
     public:
         virtual double GetVariate() = 0;
 
-        ~UniformRandomNumberGenerator()
+        virtual ~UniformRandomNumberGenerator()
         { }
     };
 
@@ -32,7 +39,7 @@ namespace Statistics
         std::default_random_engine _generator;
         std::uniform_real_distribution<double> _uniform_dist;
     public:
-        ~DefaultUniformRandomNumberGenerator()
+        virtual ~DefaultUniformRandomNumberGenerator() override
         { }
 
         virtual double GetVariate() override
@@ -42,7 +49,7 @@ namespace Statistics
 
         DefaultUniformRandomNumberGenerator()
         {
-            unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+            unsigned long seed = std::chrono::system_clock::now().time_since_epoch().count();
             _generator.seed(seed);
         }
 

@@ -11,11 +11,6 @@ using namespace PetriNetModel;
 using namespace Simulating;
 using namespace Estimating;
 
-bool IsOnP1(const PetriNet &petri_net, double &value)
-{
-    value = petri_net.GetPlaceMark(p1_uid);
-    return true;
-}
 
 
 TEST(SimulatingTest, SmokeTest)
@@ -120,11 +115,11 @@ TEST(SimulatingTest, SimulatorControllerTest)
     RandomVariable rand1("P(on p1)", IsOnP1);
     simulator.GetSteadyStateEstimator().AddRandomVariable(rand1);
 
-    SimulatorController controller(simulator, 1.0);
+    SimulatorController controller(simulator);
 
     controller.Start(10000);
 
-    while (!controller.Wait())
+    while (!controller.WaitFor(1.0))
     {
         string result = controller.ResultToString();
         std::cout << result << std::endl;
@@ -142,11 +137,11 @@ TEST(SimulatingTest, PrecisionControllTest)
     RandomVariable rand1("P(on p1)", IsOnP1);
     simulator.GetSteadyStateEstimator().AddRandomVariable(rand1);
 
-    SimulatorController controller(simulator, 1.0, TargetPrecision(TargetPrecision::Absolute, 5e-4));
+    SimulatorController controller(simulator, TargetPrecision(TargetPrecision::Absolute, 5e-4));
 
     controller.Start(1000000);
 
-    while (!controller.Wait())
+    while (!controller.WaitFor(1.0))
     {
         string result = controller.ResultToString();
         std::cout << result << std::endl;
@@ -161,61 +156,22 @@ TEST(SimulatingTest, PrecisionControllTest)
 
 TEST(SimulatingTest, Complex)
 {
-//    static char pF[] = "pF";
-//    static char pA[] = "pA";
-//    static char pT[] = "pT";
-//    static char pU[] = "pU";
-//    static char pD[] = "pD";
-//
-//    static char tR[] = "tR";
-//    static char tT[] = "tT";
-//    static char tF[] = "tF";
-//    static char tG[] = "tG";
-//    static char tMu[] = "tMu";
-//    static char tLambda[] = "tLambda";
-//    static double r = -1;
-//    auto pn = std::make_shared<PetriNetGeneric>();
-//
-//    pn->AddPlace(pF);
-//    pn->SetInitMark(pF, 1);
-//    pn->AddPlace(pA);
-//    pn->AddPlace(pT);
-//    pn->AddPlace(pU);
-//    pn->SetInitMark(pU, 1);
-//    pn->AddPlace(pD);
-//
-//    pn->AddTransition(tR, Statistics::Exp(1));
-//    pn->AddTransition("t2", Statistics::Exp(2));
-//
-//    pn->AddArc("t1", "p1", ArcType::Input, 1);
-//    pn->AddArc("t1", "p2", ArcType::Output, 1);
-//    pn->AddArc("t2", "p2", ArcType::Input, 1);
-//    pn->AddArc("t2", "p1", ArcType::Output, 1);
-//    vector<ExpectationEstimator<PetriNetDynamic, PetriNetSteadyStateSampler>> estimators;
-//    PetriNetSimulatorGeneric simulator(pn, 1000.04, 1000);
-//    PetriNetSteadyStateSampler sampler(simulator);
-//    ExpectationEstimator<PetriNetDynamic, PetriNetSteadyStateSampler> estimator(sampler);
-//    estimator.AddRandomVariable(IsOnP1);
-//    for(int i=0; i<4; i++)
-//    {
-//        estimators.push_back(estimator);
-//    }
-//    for(auto& e: estimators)
-//    {
-//        e.EstimateAsync();
-//    }
-//
-//    for(auto& e:estimators)
-//    {
-//        ASSERT_EQ(e.Wait(),true);
-//        ConfidenceInterval interval = e.GetResult(0);
-//        std::cout << interval.ToString() << std::endl;
-//    }
-//    SamplingResult summary;
-//    for(auto& e:estimators)
-//    {
-//        summary += e.GetResult(0);
-//    }
-//    ConfidenceInterval interval_total(summary);
-//    std::cout << "summary:" << interval_total.ToString() << std::endl;
+    auto pn = ComplexPetriNet();
+
+    PetriNetMultiSimulator simulator(pn, 4, 1e6);
+    RandomVariable rand_user_unavail("UserUnavail", UserUnavail);
+    simulator.GetSteadyStateEstimator().AddRandomVariable(rand_user_unavail);
+
+    SimulatorController controller(simulator);
+
+    controller.Start(1000);
+
+    while (!controller.WaitFor(1.0))
+    {
+        string result = controller.ResultToString();
+        std::cout << result << std::endl;
+    }
+    string result = controller.ResultToString();
+    std::cout << result << std::endl;
+
 };
