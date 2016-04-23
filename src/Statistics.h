@@ -13,7 +13,7 @@
 
 namespace Statistics
 {
-    double Ztable(double prob);
+    double StdNormQuantile(double p);
 
     std::function<double(double uniform_rand_num)> Exp(double lambda);
 

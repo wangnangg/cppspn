@@ -158,9 +158,11 @@ TEST(SimulatingTest, Complex)
 {
     auto pn = ComplexPetriNet();
 
-    PetriNetMultiSimulator simulator(pn, 4, 1e6);
+    PetriNetMultiSimulator simulator(pn, 4, 1e7);
     RandomVariable rand_user_unavail("UserUnavail", UserUnavail);
+    RandomVariable rand_is_user_active("P(User Active)", IsUserActive);
     simulator.GetSteadyStateEstimator().AddRandomVariable(rand_user_unavail);
+    simulator.GetSteadyStateEstimator().AddRandomVariable(rand_is_user_active);
 
     SimulatorController controller(simulator);
 

@@ -15,11 +15,18 @@ namespace PetriNetModel
         }
         _firing_transition->Fire();
         _time = _next_firing_time;
-        FindNextFiringTransition(generator);
+        for (Transition *trans_ptr:_firing_transition->GetAffectedTransition())
+        {
+            trans_ptr->InputArcChanged(_time, generator.GetVariate());
+        }
+        FindNextFiringTransition();
     }
 
     void PetriNet::Reset(UniformRandomNumberGenerator &generator)
     {
+        _time = 0.0;
+        _next_firing_time = 0.0;
+        _firing_transition = nullptr;
         for (auto &place:_place_list)
         {
             place.Reset();
@@ -27,21 +34,17 @@ namespace PetriNetModel
         for (auto &trans:_transition_list)
         {
             trans.Reset();
+            trans.InputArcChanged(_time, generator.GetVariate());
         }
-        _time = 0.0;
-        _next_firing_time = 0.0;
-        _firing_transition = nullptr;
-
-        FindNextFiringTransition(generator);
+        FindNextFiringTransition();
     }
 
-    void PetriNet::FindNextFiringTransition(UniformRandomNumberGenerator &generator)
+    void PetriNet::FindNextFiringTransition()
     {
         Transition *firing_transition = nullptr;
         double firing_time = std::numeric_limits<double>::infinity();
         for (auto &transition:_transition_list)
         {
-            transition.InputArcChanged(_time, generator.GetVariate());
             double time = transition.GetFireTime();
             if (time < 0) //disabled
             {

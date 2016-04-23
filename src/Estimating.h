@@ -35,6 +35,7 @@ namespace Estimating
         double _variance_sum = 0;
         double _average = 0;
         double _total_weight = 0;
+        double _squared_weight_sum = 0;
     public:
         void AddNewSample(double sample, double weight)
         {
@@ -42,13 +43,20 @@ namespace Estimating
             double old_average = _average;
             _average = old_average + (sample - old_average) * weight / _total_weight;
             _variance_sum = _variance_sum + weight * (sample - old_average) * (sample - _average);
+            _squared_weight_sum += weight * weight;
         }
 
         double Variance() const
         { return _variance_sum / _total_weight; }
 
         double AverageVariance() const
-        { return Variance() / _total_weight; }
+        { return Variance() / EffectiveBase(); }
+
+        double EffectiveBase() const
+        {
+            return (_total_weight * _total_weight) / _squared_weight_sum;
+        }
+
 
         double AverageStandardDeviation() const
         { return std::sqrt(AverageVariance()); };
@@ -76,6 +84,7 @@ namespace Estimating
             this->_average = _average;
             this->_total_weight = _total_weight;
             this->_variance_sum = _variance_sum;
+            this->_squared_weight_sum += rhs._squared_weight_sum;
             return *this;
         }
     };
@@ -85,6 +94,7 @@ namespace Estimating
         lhs += rhs;
         return lhs;
     }
+
     class ConfidenceInterval
     {
     private:
@@ -95,7 +105,7 @@ namespace Estimating
         ConfidenceInterval(const SamplingResult &summary) : _summary(summary)
         {
             double half_alpha = (1.0 - _confidence_coefficient) / 2.0;
-            _z_abs = std::abs(Statistics::Ztable(half_alpha));
+            _z_abs = std::abs(Statistics::StdNormQuantile(half_alpha));
         }
 
         double LowerBound() const
@@ -109,6 +119,7 @@ namespace Estimating
 
         double Error() const
         { return _summary.AverageStandardDeviation() * _z_abs; }
+
         double RelativeError() const
         {
             if (_summary.Average() == 0.0)
@@ -119,6 +130,7 @@ namespace Estimating
                 return Error() / _summary.Average();
             }
         }
+
         string ToString() const
         {
             ostringstream ss;
@@ -227,9 +239,6 @@ namespace Estimating
 
         size_t GetRandomVariableCount() const
         { return _random_variable_list.size(); }
-
-
-
 
 
     };

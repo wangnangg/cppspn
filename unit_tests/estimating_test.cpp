@@ -166,3 +166,42 @@ TEST(SamplingSummary_test, WeightCombineTest)
 
 }
 
+
+TEST(SamplingSummary_test, PropertyTest)
+{
+    SamplingResult result1;
+    SamplingResult result2;
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine generator(seed);
+    std::uniform_real_distribution<double> distribution;
+    for (int i = 0; i < 30; i++)
+    {
+        double rand_num = distribution(generator);
+        result1.AddNewSample(rand_num, 1.0);
+        result2.AddNewSample(rand_num, 3.14);
+    }
+    ASSERT_DOUBLE_EQ(result1.Average(), result2.Average());
+    ASSERT_DOUBLE_EQ(result1.Variance(), result2.Variance());
+    ASSERT_DOUBLE_EQ(result1.AverageVariance(), result2.AverageVariance());
+}
+
+
+TEST(SamplingSummary_test, AverageStandardDeviationTest)
+{
+    SamplingResult result;
+    result.AddNewSample(5, 1.23);
+    result.AddNewSample(5, 2.12);
+    result.AddNewSample(4, 1.23);
+    result.AddNewSample(4, 0.32);
+    result.AddNewSample(3, 1.53);
+    result.AddNewSample(4, 0.59);
+    result.AddNewSample(3, 0.94);
+    result.AddNewSample(2, 0.94);
+    result.AddNewSample(2, 0.84);
+    result.AddNewSample(1, 0.73);
+    std::cout << result.Variance() << std::endl;
+    std::cout << result.EffectiveBase() << std::endl;
+    std::cout << result.AverageVariance() << std::endl;
+}
+
+

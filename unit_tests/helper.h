@@ -16,6 +16,8 @@ PetriNetCreator SimplePetriNet();
 
 bool UserUnavail(const PetriNet &petri_net, double &value);
 
+bool IsUserActive(const PetriNet &petri_net, double &value);
+
 PetriNetCreator ComplexPetriNet();
 
 string GetStateName(const PetriNet &pn);

@@ -55,6 +55,19 @@ namespace PetriNetModel
                 type, multiplicity});
     }
 
+    void PetriNetCreator::AddPlaceAffectedTransition(std::set<Transition *> &trans_set, Place *place_ptr) const
+    {
+        for (Arc *arc_ptr: place_ptr->_input_arcs)
+        {
+            trans_set.insert(arc_ptr->_transition);
+        }
+        for (Arc *arc_ptr: place_ptr->_inhibitor_arcs)
+        {
+            trans_set.insert(arc_ptr->_transition);
+        }
+    }
+
+
     PetriNet PetriNetCreator::CreatePetriNet() const
     {
         if (!_committed)
@@ -68,12 +81,6 @@ namespace PetriNetModel
             const auto &cmd = _place_cmd[p_index];
             place.Init(&cmd.name, cmd.init_mark);
         }
-        for (size_t t_index = 0; t_index < _transition_cmd.size(); t_index++)
-        {
-            auto &transition = petri_net._transition_list[t_index];
-            const auto &cmd = _transition_cmd[t_index];
-            transition.Init(&cmd.name, cmd.firing_time_func, cmd.resampling_policy);
-        }
         for (size_t arc_index = 0; arc_index < _arc_cmd.size(); arc_index++)
         {
             auto &arc = petri_net._arc_list[arc_index];
@@ -82,9 +89,30 @@ namespace PetriNetModel
             Transition *trans_ptr = &petri_net._transition_list[cmd.transition_index];
             arc.Init(trans_ptr, place_ptr, cmd.type, cmd.multiplicity);
             trans_ptr->AddArc(&arc, cmd.type);
+            place_ptr->AddArc(&arc, cmd.type);
+        }
+        for (size_t t_index = 0; t_index < _transition_cmd.size(); t_index++)
+        {
+            auto &transition = petri_net._transition_list[t_index];
+            const auto &cmd = _transition_cmd[t_index];
+            std::set<Transition *> affected_trans_set;
+            for (Arc *arc_ptr:transition._input_arcs)
+            {
+                AddPlaceAffectedTransition(affected_trans_set, arc_ptr->_place);
+            }
+            for (Arc *arc_ptr:transition._output_arcs)
+            {
+                AddPlaceAffectedTransition(affected_trans_set, arc_ptr->_place);
+            }
+            transition.Init(&cmd.name,
+                            cmd.firing_time_func,
+                            cmd.resampling_policy,
+                            vector<Transition *>(affected_trans_set.begin(), affected_trans_set.end())
+            );
         }
         return petri_net;
     }
+
 
     bool PetriNetCreator::HasName(const string &name, const unordered_map<string, size_t> &map) const
     {

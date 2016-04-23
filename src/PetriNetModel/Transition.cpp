@@ -9,10 +9,6 @@ namespace PetriNetModel
     void Transition::InputArcChanged(double current_time, double uniform_rand_num)
     {
         double enabled = IsEnabled();
-        if (enabled && _state == State::Enable) return;
-        if (!enabled &&
-            (_state == State::Disable_NeverEnabledSinceFire || _state == State::Disable_EnabledSinceFire))
-            return;
         switch (_state)
         {
             case State::JustFired:
@@ -28,14 +24,14 @@ namespace PetriNetModel
                 }
                 break;
             case State::Enable:
-                if (!enabled)
+                if (enabled)
+                {
+                    return;
+                } else
                 {
                     _left_time = _firing_time - current_time;
                     _firing_time = -1;
                     _state = State::Disable_EnabledSinceFire;
-                } else
-                {
-                    throw std::exception();
                 }
                 break;
             case State::Disable_EnabledSinceFire:
@@ -57,7 +53,7 @@ namespace PetriNetModel
                     _state = State::Enable;
                 } else
                 {
-                    throw std::exception();
+                    return;
                 }
             case State::Disable_NeverEnabledSinceFire:
                 if (enabled)
@@ -67,7 +63,7 @@ namespace PetriNetModel
                     _state = State::Enable;
                 } else
                 {
-                    throw std::exception();
+                    return;
                 }
         }
     }

@@ -70,6 +70,12 @@ bool UserUnavail(const PetriNet &petri_net, double &value)
     return true;
 }
 
+bool IsUserActive(const PetriNet &petri_net, double &value)
+{
+    value = petri_net.GetPlaceMark(pA_uid);
+    return true;
+}
+
 PetriNetCreator ComplexPetriNet()
 {
     static char pF[] = "pF";
@@ -95,7 +101,7 @@ PetriNetCreator ComplexPetriNet()
 
     creator.AddTransition(tF, Weibull(0.88, std::exp(4.5)));
     creator.AddTransition(tG, ParetoTrunc(0.5, 60, 6000));
-    creator.AddTransition(tR, Exp(0.1));
+    creator.AddTransition(tR, Exp(0.001));
     creator.AddTransition(tT, Deterministic(10.0));
     creator.AddTransition(tLambda, Exp(1.0 / 346982.0));
     creator.AddTransition(tMu, Exp(1.0 / 2581.0));
@@ -154,6 +160,7 @@ string GetStateName(const PetriNet &pn)
             break;
         case 2:
             server = "D";
+            break;
         default:
             throw std::exception();
             break;

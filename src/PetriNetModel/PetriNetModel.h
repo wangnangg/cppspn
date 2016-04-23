@@ -4,13 +4,16 @@
 
 #ifndef SPNP_PETRI_NET_MODEL_H
 #define SPNP_PETRI_NET_MODEL_H
+
 #include<string>
 #include<vector>
 #include<memory>
+#include <set>
 #include<unordered_map>
 #include<sstream>
 #include<functional>
 #include "Statistics.h"
+
 namespace PetriNetModel
 {
     using std::string;
@@ -35,6 +38,8 @@ namespace PetriNetModel
 
     class Arc
     {
+        friend class PetriNetCreator;
+
     public:
         enum Type
         {
@@ -69,15 +74,36 @@ namespace PetriNetModel
 
     class Place
     {
+        friend class PetriNetCreator;
+
     private:
         const string *_name;
         Mark _mark;
         Mark _init_mark;
+        vector<Arc *> _input_arcs;
+        vector<Arc *> _output_arcs;
+        vector<Arc *> _inhibitor_arcs;
     public:
         void Init(const string *name, Mark mark)
         {
             _name = name;
             _init_mark = mark;
+        }
+
+        void AddArc(Arc *arc_ptr, Arc::Type type)
+        {
+            switch (type)
+            {
+                case Arc::Type::Input:
+                    _input_arcs.push_back(arc_ptr);
+                    break;
+                case Arc::Type::Output:
+                    _output_arcs.push_back(arc_ptr);
+                    break;
+                case Arc::Type::Inhibitor:
+                    _inhibitor_arcs.push_back(arc_ptr);
+                    break;
+            }
         }
 
         void Reset()
@@ -95,6 +121,8 @@ namespace PetriNetModel
 
     class Transition
     {
+        friend class PetriNetCreator;
+
     public:
         enum ResamplingPolicy
         {
@@ -117,11 +145,12 @@ namespace PetriNetModel
         vector<Arc *> _output_arcs;
         vector<Arc *> _inhibitor_arcs;
         FiringTimeFuncType _sample_func;
-        State _state = State::Disable_NeverEnabledSinceFire;
+        State _state = State::JustFired;
         double _firing_time = -1;
         double _last_sample_value = -1;
         double _left_time = -1;
         ResamplingPolicy _policy;
+        vector<Transition *> _affected_transition;
     private:
         bool IsEnabled() const;
 
@@ -131,18 +160,18 @@ namespace PetriNetModel
 
         void Reset()
         {
-            _state = State::Disable_NeverEnabledSinceFire;
+            _state = State::JustFired;
             _firing_time = -1;
-            _last_sample_value = -1;
-            _left_time = -1;
         }
 
 
-        void Init(const string *name, FiringTimeFuncType sample_func, ResamplingPolicy policy)
+        void Init(const string *name, FiringTimeFuncType sample_func, ResamplingPolicy policy,
+                  vector<Transition *> &&affected_trans)
         {
             _name = name;
             _sample_func = sample_func;
             _policy = policy;
+            _affected_transition = affected_trans;
         }
 
         void AddArc(Arc *arc_ptr, Arc::Type type);
@@ -151,6 +180,9 @@ namespace PetriNetModel
         { return _firing_time; }
 
         void InputArcChanged(double current_time, double uniform_rand_num);
+
+        vector<Transition *> &GetAffectedTransition()
+        { return _affected_transition; }
 
         void Fire();
     };
@@ -206,6 +238,9 @@ namespace PetriNetModel
         bool HasName(const string &name, const unordered_map<string, size_t> &map) const;
 
         size_t FindIndex(const string &name, const std::unordered_map<std::string, size_t> &map) const;
+
+        void AddPlaceAffectedTransition(std::set<Transition *> &trans_set, Place *place_ptr) const;
+
 
     public:
         PetriNetCreator() = default;
@@ -275,7 +310,7 @@ namespace PetriNetModel
         }
 
     private:
-        void FindNextFiringTransition(UniformRandomNumberGenerator &generator);
+        void FindNextFiringTransition();
     };
 }
 #endif //SPNP_PETRI_NET_MODEL_H
