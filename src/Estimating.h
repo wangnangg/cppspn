@@ -19,7 +19,6 @@
 #include <shared_mutex>
 #include <mutex>
 #include "PetriNetModel/PetriNetModel.h"
-
 namespace Estimating
 {
     using std::string;
@@ -102,7 +101,8 @@ namespace Estimating
         double _confidence_coefficient = 0.95;
         double _z_abs;
     public:
-        ConfidenceInterval(const SamplingResult &summary) : _summary(summary)
+        ConfidenceInterval(const SamplingResult &summary, double confidence_coefficient = 0.95) :
+                _summary(summary), _confidence_coefficient(confidence_coefficient)
         {
             double half_alpha = (1.0 - _confidence_coefficient) / 2.0;
             _z_abs = std::abs(Statistics::StdNormQuantile(half_alpha));
@@ -171,46 +171,37 @@ namespace Estimating
 
 
     template<typename SampleType>
-    class RandomVariableEstimatorGeneric
+    class MeanEstimatorGeneric
     {
     private:
         typedef vector<SamplingResult> ResultList;
         typedef vector<ResultList> SourceList;
         typedef vector<RandomVariableGeneric<SampleType>> RandomVariableList;
         RandomVariableList _random_variable_list;
-        SourceList _source_list;
-        vector<std::mutex> _source_mutex_list;
+        SourceList _source_result_list;
+        vector<std::mutex> _source_result_mutex_list;
+        SourceList _source_mean_list;
     private:
         void AddNewResultToSource()
         {
-            for (ResultList &result_list: _source_list)
+            for (ResultList &result_list: _source_result_list)
             {
                 result_list.push_back(SamplingResult());
+            }
+            for (ResultList &mean_list: _source_mean_list)
+            {
+                mean_list.push_back(SamplingResult());
             }
         }
 
     public:
-        typedef typename RandomVariableList::const_iterator const_iterator;
-        typedef typename RandomVariableList::iterator iterator;
-
-        iterator begin()
-        { return _random_variable_list.begin(); }
-
-        const_iterator begin() const
-        { return _random_variable_list.begin(); }
-
-        iterator end()
-        { return _random_variable_list.end(); }
-
-        const_iterator end() const
-        { return _random_variable_list.end(); }
-
-        RandomVariableEstimatorGeneric(size_t source_count) : _source_list(source_count),
-                                                              _source_mutex_list(source_count)
+        MeanEstimatorGeneric(size_t source_count) : _source_result_list(source_count),
+                                                    _source_result_mutex_list(source_count),
+                                                    _source_mean_list(source_count)
         {
         }
 
-        RandomVariableEstimatorGeneric(const RandomVariableEstimatorGeneric<SampleType> &) = delete;
+        MeanEstimatorGeneric(const MeanEstimatorGeneric<SampleType> &) = delete;
 
         void AddRandomVariable(const RandomVariableGeneric<SampleType> &random_variable)
         {
@@ -218,39 +209,28 @@ namespace Estimating
             AddNewResultToSource();
         }
 
-
-        std::mutex &GetSourceMutex(size_t source_index)
-        {
-            return _source_mutex_list[source_index];
-        }
-
-        //to input sample, the corresponding lock must be held.
         void InputSample(size_t source_index, const SampleType &sample, double weight);
+
+        //to submit mean, the corresponding lock must be held.
+        void SubmitMean(size_t source_index);
 
         void ClearResult();
 
         //to submit result, the corresponding lock must be held.
         void SubmitResult(size_t source_index);
 
-        const RandomVariableGeneric<SampleType> &GetRandomVariable(size_t rand_var_index) const
-        {
-            return _random_variable_list[rand_var_index];
-        }
-
-        size_t GetRandomVariableCount() const
-        { return _random_variable_list.size(); }
-
-
+        const vector<RandomVariableGeneric<SampleType>> &GetRandomVariableList() const
+        { return _random_variable_list; }
     };
 
     template
     class RandomVariableGeneric<PetriNetModel::PetriNet>;
 
     template
-    class RandomVariableEstimatorGeneric<PetriNetModel::PetriNet>;
+    class MeanEstimatorGeneric<PetriNetModel::PetriNet>;
 
     typedef RandomVariableGeneric<PetriNetModel::PetriNet> RandomVariable;
-    typedef RandomVariableEstimatorGeneric<PetriNetModel::PetriNet> RandomVariableEstimator;
+    typedef MeanEstimatorGeneric<PetriNetModel::PetriNet> MeanEstimator;
 
 }
 

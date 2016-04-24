@@ -18,17 +18,17 @@ TEST(SimulatingTest, SmokeTest)
     Statistics::DefaultUniformRandomNumberGenerator generator(123456);
     auto pn = SimplePetriNet();
 
-    RandomVariableEstimator steady_state_estimator(1);
+    MeanEstimator steady_state_estimator(1);
     RandomVariable rand1("P(on p1)", IsOnP1);
     steady_state_estimator.AddRandomVariable(rand1);
 
-    RandomVariableEstimator transient_state_estimator(1);
+    MeanEstimator transient_state_estimator(1);
 
     PetriNetSimulator simulator(pn, steady_state_estimator, transient_state_estimator, 1000.0, 0);
     simulator.Run(100, generator);
     simulator.SubmitResult();
 
-    ConfidenceInterval interval = steady_state_estimator.GetRandomVariable(0).GetSamplingResult();
+    ConfidenceInterval interval = steady_state_estimator.GetRandomVariableList()[0].GetSamplingResult();
     std::cout << interval.ToString() << std::endl;
     ASSERT_NEAR(interval.Median(), 2.0 / 3.0, 1.0e-2);
 }
@@ -40,17 +40,17 @@ TEST(SimulatingTest, MultithreadSimulatorTest)
 
     PetriNetMultiSimulator simulator(pn, 4, 1000.0);
     RandomVariable rand1("P(on p1)", IsOnP1);
-    simulator.GetSteadyStateEstimator().AddRandomVariable(rand1);
+    simulator.GetCumulativeEstimator().AddRandomVariable(rand1);
 
-    RandomVariableEstimator steady_state_estimator(1);
+    MeanEstimator steady_state_estimator(1);
     steady_state_estimator.AddRandomVariable(rand1);
-    RandomVariableEstimator transient_state_estimator(1);
+    MeanEstimator transient_state_estimator(1);
 
     PetriNetSimulator single_simulator(pn, steady_state_estimator, transient_state_estimator, 1000.0, 0);
 
     simulator.Run(10); //for loading pages.
     single_simulator.Run(10, generator);
-    uint32_t iteration_count = 10000;
+    uint32_t iteration_count = 1000;
     StartClock();
     single_simulator.Run(iteration_count, generator);
     single_simulator.SubmitResult();
@@ -61,14 +61,14 @@ TEST(SimulatingTest, MultithreadSimulatorTest)
     double multi_thread_time = StopClock();
 
 
-    ConfidenceInterval multi_interval = simulator.GetSteadyStateEstimator().GetRandomVariable(0).GetSamplingResult();
-    ConfidenceInterval single_interval = steady_state_estimator.GetRandomVariable(0).GetSamplingResult();
+    ConfidenceInterval multi_interval = simulator.GetCumulativeEstimator().GetRandomVariableList()[0].GetSamplingResult();
+    ConfidenceInterval single_interval = steady_state_estimator.GetRandomVariableList()[0].GetSamplingResult();
 
     std::cout << "4 threads time: " << multi_thread_time << "s" << std::endl;
     std::cout << "4 threads result: " << multi_interval.ToString() << std::endl;
     std::cout << "single thread time:" << single_thread_time << "s" << std::endl;
     std::cout << "single thread value: " << single_interval.ToString() << std::endl;
-    ASSERT_NEAR(multi_interval.Error(), single_interval.Error(), 1.0e-5);
+    ASSERT_NEAR(multi_interval.Error(), single_interval.Error(), 1.0e-4);
 }
 
 TEST(SimulatingTest, MultipleSimulatorTest)
@@ -77,14 +77,14 @@ TEST(SimulatingTest, MultipleSimulatorTest)
     Statistics::DefaultUniformRandomNumberGenerator generator2(123456);
     auto pn = SimplePetriNet();
 
-    RandomVariableEstimator steady_state_estimator(2);
+    MeanEstimator steady_state_estimator(2);
     RandomVariable rand1("P(on p1)", IsOnP1);
     steady_state_estimator.AddRandomVariable(rand1);
 
-    RandomVariableEstimator steady_state_estimator_standard(1);
+    MeanEstimator steady_state_estimator_standard(1);
     steady_state_estimator_standard.AddRandomVariable(rand1);
 
-    RandomVariableEstimator transient_state_estimator(2);
+    MeanEstimator transient_state_estimator(2);
 
     PetriNetSimulator simulator_standard(pn, steady_state_estimator_standard, transient_state_estimator, 1000.0, 0);
     PetriNetSimulator simulator1(pn, steady_state_estimator, transient_state_estimator, 1000.0, 0);
@@ -98,8 +98,8 @@ TEST(SimulatingTest, MultipleSimulatorTest)
     simulator_standard.Run(1000, generator2);
     simulator_standard.SubmitResult();
 
-    ConfidenceInterval interval = steady_state_estimator.GetRandomVariable(0).GetSamplingResult();
-    ConfidenceInterval interval_standard = steady_state_estimator_standard.GetRandomVariable(0).GetSamplingResult();
+    ConfidenceInterval interval = steady_state_estimator.GetRandomVariableList()[0].GetSamplingResult();
+    ConfidenceInterval interval_standard = steady_state_estimator_standard.GetRandomVariableList()[0].GetSamplingResult();
     std::cout << interval.ToString() << std::endl;
     std::cout << interval_standard.ToString() << std::endl;
     ASSERT_NEAR(interval.LowerBound(), interval_standard.LowerBound(), 1e-10);
@@ -113,7 +113,7 @@ TEST(SimulatingTest, SimulatorControllerTest)
 
     PetriNetMultiSimulator simulator(pn, 4, 1000.0);
     RandomVariable rand1("P(on p1)", IsOnP1);
-    simulator.GetSteadyStateEstimator().AddRandomVariable(rand1);
+    simulator.GetCumulativeEstimator().AddRandomVariable(rand1);
 
     SimulatorController controller(simulator);
 
@@ -135,9 +135,9 @@ TEST(SimulatingTest, PrecisionControllTest)
 
     PetriNetMultiSimulator simulator(pn, 4, 1000.0);
     RandomVariable rand1("P(on p1)", IsOnP1);
-    simulator.GetSteadyStateEstimator().AddRandomVariable(rand1);
+    simulator.GetCumulativeEstimator().AddRandomVariable(rand1);
 
-    SimulatorController controller(simulator, TargetPrecision(TargetPrecision::Absolute, 5e-4));
+    SimulatorController controller(simulator, TargetPrecision(TargetPrecision::Relative, 5e-4, 0.99));
 
     controller.Start(1000000);
 
@@ -161,8 +161,10 @@ TEST(SimulatingTest, Complex)
     PetriNetMultiSimulator simulator(pn, 4, 1e7);
     RandomVariable rand_user_unavail("UserUnavail", UserUnavail);
     RandomVariable rand_is_user_active("P(User Active)", IsUserActive);
-    simulator.GetSteadyStateEstimator().AddRandomVariable(rand_user_unavail);
-    simulator.GetSteadyStateEstimator().AddRandomVariable(rand_is_user_active);
+    simulator.GetCumulativeEstimator().AddRandomVariable(rand_user_unavail);
+    simulator.GetCumulativeEstimator().AddRandomVariable(rand_is_user_active);
+    simulator.GetTransientEstimator().AddRandomVariable(rand_user_unavail);
+    simulator.GetTransientEstimator().AddRandomVariable(rand_is_user_active);
 
     SimulatorController controller(simulator);
 

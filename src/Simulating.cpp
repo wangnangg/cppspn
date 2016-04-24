@@ -15,29 +15,24 @@ namespace Simulating
             }
             _petri_net.Reset(generator);
 
-            std::unique_lock<std::mutex> steady_unique_lock(_steady_state_estimator.GetSourceMutex(_source_index));
             while (_petri_net.GetNextFiringTime() < _end_time)
             {
-                _steady_state_estimator.InputSample(_source_index, _petri_net, _petri_net.GetDuration());
+                _cumulative_estimator.InputSample(_source_index, _petri_net, _petri_net.GetDuration());
                 _petri_net.NextState(generator);
             }
-            _steady_state_estimator.InputSample(_source_index, _petri_net, _end_time - _petri_net.GetTime());
-            steady_unique_lock.unlock();
-            std::unique_lock<std::mutex> transient_unique_lock(_transient_estimator.GetSourceMutex(_source_index));
+            _cumulative_estimator.InputSample(_source_index, _petri_net, _end_time - _petri_net.GetTime());
             _transient_estimator.InputSample(_source_index, _petri_net, 1.0);
-            transient_unique_lock.unlock();
+
+            _cumulative_estimator.SubmitMean(_source_index);
+            _transient_estimator.SubmitMean(_source_index);
         }
         _running = false;
     }
 
     void PetriNetSimulator::SubmitResult()
     {
-        std::unique_lock<std::mutex> steady_unique_lock(_steady_state_estimator.GetSourceMutex(_source_index));
-        _steady_state_estimator.SubmitResult(_source_index);
-        steady_unique_lock.unlock();
-        std::unique_lock<std::mutex> transient_unique_lock(_transient_estimator.GetSourceMutex(_source_index));
+        _cumulative_estimator.SubmitResult(_source_index);
         _transient_estimator.SubmitResult(_source_index);
-        transient_unique_lock.unlock();
     }
 
     void PetriNetMultiSimulator::RunAsync(uint32_t interation_count)
@@ -48,7 +43,7 @@ namespace Simulating
         for (uint32_t i = 0; i < _simulator_count; i++)
         {
             _simulator_list.push_back(
-                    PetriNetSimulator(_creator, _steady_state_estimator, _transient_estimator, _end_time, i));
+                    PetriNetSimulator(_creator, _cumulative_estimator, _transient_estimator, _end_time, i));
             _generator_list.push_back(DefaultUniformRandomNumberGenerator());
         }
         for (uint32_t i = 0; i < _simulator_count; i++)
@@ -59,14 +54,14 @@ namespace Simulating
 
     bool SimulatorController::IsPrecisionSatisfied() const
     {
-        for (const auto &rand_var:_simulator.GetSteadyStateEstimator())
+        for (const auto &rand_var:_simulator.GetCumulativeEstimator().GetRandomVariableList())
         {
             if (!_precision.IsSatisfied(rand_var.GetSamplingResult()))
             {
                 return false;
             }
         }
-        for (const auto &rand_var:_simulator.GetTransientEstimator())
+        for (const auto &rand_var:_simulator.GetTransientEstimator().GetRandomVariableList())
         {
             if (!_precision.IsSatisfied(rand_var.GetSamplingResult()))
             {
@@ -80,13 +75,13 @@ namespace Simulating
     {
         ostringstream ss;
         ss << "steady states variable:" << std::endl;
-        for (const auto &rand_var: _simulator.GetSteadyStateEstimator())
+        for (const auto &rand_var: _simulator.GetCumulativeEstimator().GetRandomVariableList())
         {
             ConfidenceInterval interval = rand_var.GetSamplingResult();
             ss << "\t" << rand_var.GetName() << ": " << interval.ToString() << std::endl;
         }
         ss << "transient states variable:" << std::endl;
-        for (const auto &rand_var: _simulator.GetTransientEstimator())
+        for (const auto &rand_var: _simulator.GetTransientEstimator().GetRandomVariableList())
         {
             ConfidenceInterval interval = rand_var.GetSamplingResult();
             ss << "\t" << rand_var.GetName() << ": " << interval.ToString() << std::endl;

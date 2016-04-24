@@ -19,8 +19,8 @@ namespace Simulating
     {
     private:
         PetriNet _petri_net;
-        RandomVariableEstimator &_steady_state_estimator;
-        RandomVariableEstimator &_transient_estimator;
+        MeanEstimator &_cumulative_estimator;
+        MeanEstimator &_transient_estimator;
         double _end_time;
         size_t _source_index;
         thread _worker_thread;
@@ -28,11 +28,11 @@ namespace Simulating
         bool _running = false;
     public:
         PetriNetSimulator(const PetriNetCreator &creator,
-                          RandomVariableEstimator &steady_state_estimator,
-                          RandomVariableEstimator &transient_estimator,
+                          MeanEstimator &cumulative_estimator,
+                          MeanEstimator &transient_estimator,
                           double end_time,
                           size_t source_index)
-                : _petri_net(creator.CreatePetriNet()), _steady_state_estimator(steady_state_estimator),
+                : _petri_net(creator.CreatePetriNet()), _cumulative_estimator(cumulative_estimator),
                   _transient_estimator(transient_estimator), _end_time(end_time), _source_index(source_index)
         { }
 
@@ -68,8 +68,8 @@ namespace Simulating
     class PetriNetMultiSimulator
     {
         size_t _simulator_count;
-        RandomVariableEstimator _steady_state_estimator;
-        RandomVariableEstimator _transient_estimator;
+        MeanEstimator _cumulative_estimator;
+        MeanEstimator _transient_estimator;
         vector<PetriNetSimulator> _simulator_list;
         vector<DefaultUniformRandomNumberGenerator> _generator_list;
         const PetriNetCreator &_creator;
@@ -79,7 +79,7 @@ namespace Simulating
                                size_t simulator_count,
                                double end_time) :
                 _simulator_count(simulator_count),
-                _steady_state_estimator(simulator_count), _transient_estimator(simulator_count),
+                _cumulative_estimator(simulator_count), _transient_estimator(simulator_count),
                 _creator(creator), _end_time(end_time)
         { }
 
@@ -122,15 +122,15 @@ namespace Simulating
             return false;
         }
 
-        RandomVariableEstimator &GetSteadyStateEstimator()
-        { return _steady_state_estimator; }
+        MeanEstimator &GetCumulativeEstimator()
+        { return _cumulative_estimator; }
 
-        RandomVariableEstimator &GetTransientEstimator()
+        MeanEstimator &GetTransientEstimator()
         { return _transient_estimator; }
 
         void UpdateResult()
         {
-            _steady_state_estimator.ClearResult();
+            _cumulative_estimator.ClearResult();
             _transient_estimator.ClearResult();
             for (auto &simulator: _simulator_list)
             {
@@ -153,15 +153,17 @@ namespace Simulating
     private:
         Type _type;
         double _precision;
+        double _confidence_coefficient;
     public:
 
-        TargetPrecision(Type type, double precision) : _type(type), _precision(precision)
+        TargetPrecision(Type type, double precision, double confidence_coefficient = 0.95) :
+                _type(type), _precision(precision), _confidence_coefficient(confidence_coefficient)
         { }
 
         bool IsSatisfied(const SamplingResult &result) const
         {
             bool satisfied = false;
-            ConfidenceInterval interval = result;
+            ConfidenceInterval interval(result, _confidence_coefficient);
             switch (_type)
             {
                 case Relative:
