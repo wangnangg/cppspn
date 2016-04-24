@@ -74,13 +74,13 @@ namespace Simulating
     string SimulatorController::ResultToString() const
     {
         ostringstream ss;
-        ss << "steady states variable:" << std::endl;
+        ss << "cumulative random variable:" << std::endl;
         for (const auto &rand_var: _simulator.GetCumulativeEstimator().GetRandomVariableList())
         {
             ConfidenceInterval interval = rand_var.GetSamplingResult();
             ss << "\t" << rand_var.GetName() << ": " << interval.ToString() << std::endl;
         }
-        ss << "transient states variable:" << std::endl;
+        ss << "transient random variable:" << std::endl;
         for (const auto &rand_var: _simulator.GetTransientEstimator().GetRandomVariableList())
         {
             ConfidenceInterval interval = rand_var.GetSamplingResult();

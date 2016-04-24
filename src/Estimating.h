@@ -38,6 +38,10 @@ namespace Estimating
     public:
         void AddNewSample(double sample, double weight)
         {
+            if (weight <= 0.0)
+            {
+                return;
+            }
             _total_weight += weight;
             double old_average = _average;
             _average = old_average + (sample - old_average) * weight / _total_weight;
@@ -74,16 +78,21 @@ namespace Estimating
 
         SamplingResult &operator+=(const SamplingResult &rhs)
         {
+            if (rhs._total_weight <= 0.0)
+            {
+                return *this;
+            }
             double _total_weight = this->TotalWeight() + rhs.TotalWeight();
-            double _average = this->Average() * this->TotalWeight() / _total_weight +
-                              rhs.Average() * rhs.TotalWeight() / _total_weight;
-            double _variance_sum = this->VarianceSum() + rhs.VarianceSum() +
-                                   this->TotalWeight() * (this->Average() - _average) * (this->Average() - _average) +
-                                   rhs.TotalWeight() * (rhs.Average() - _average) * (rhs.Average() - _average);
+            double _average = this->_average * this->_total_weight / _total_weight +
+                              rhs._average * rhs._total_weight / _total_weight;
+            double _variance_sum = this->_variance_sum + rhs._variance_sum +
+                                   this->_total_weight * (this->_average - _average) * (this->_average - _average) +
+                                   rhs._total_weight * (rhs._average - _average) * (rhs._average - _average);
+            double _squared_weight_sum = this->_squared_weight_sum + rhs._squared_weight_sum;
             this->_average = _average;
             this->_total_weight = _total_weight;
             this->_variance_sum = _variance_sum;
-            this->_squared_weight_sum += rhs._squared_weight_sum;
+            this->_squared_weight_sum = _squared_weight_sum;
             return *this;
         }
     };

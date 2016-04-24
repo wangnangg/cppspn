@@ -34,6 +34,16 @@ TEST(SamplingSummary_test, BasicTest)
     ASSERT_EQ(summary.VarianceSum(), 150.0);
 }
 
+TEST(SamplingSummary_test, EmptyResultTest)
+{
+    SamplingResult result1;
+    SamplingResult result2;
+    result1 += result2;
+    ASSERT_EQ(result1.Average(), 0.0);
+    ASSERT_EQ(result1.VarianceSum(), 0.0);
+    ASSERT_EQ(result1.TotalWeight(), 0.0);
+}
+
 TEST(SamplingSummary_test, LargeTest)
 {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();

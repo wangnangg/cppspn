@@ -168,7 +168,7 @@ TEST(SimulatingTest, Complex)
 
     SimulatorController controller(simulator);
 
-    controller.Start(1000);
+    controller.Start(1000000);
 
     while (!controller.WaitFor(1.0))
     {
