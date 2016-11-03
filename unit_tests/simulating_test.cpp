@@ -50,7 +50,7 @@ TEST(SimulatingTest, MultithreadSimulatorTest)
 
     simulator.Run(10); //for loading pages.
     single_simulator.Run(10, generator);
-    uint32_t iteration_count = 1000;
+    uint32_t iteration_count = 10000;
     StartClock();
     single_simulator.Run(iteration_count, generator);
     single_simulator.SubmitResult();
@@ -168,7 +168,7 @@ TEST(SimulatingTest, Complex)
 
     SimulatorController controller(simulator);
 
-    controller.Start(1000000);
+    controller.Start(1000);
 
     while (!controller.WaitFor(1.0))
     {

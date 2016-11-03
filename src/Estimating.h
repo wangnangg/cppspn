@@ -220,12 +220,10 @@ namespace Estimating
 
         void InputSample(size_t source_index, const SampleType &sample, double weight);
 
-        //to submit mean, the corresponding lock must be held.
         void SubmitMean(size_t source_index);
 
         void ClearResult();
 
-        //to submit result, the corresponding lock must be held.
         void SubmitResult(size_t source_index);
 
         const vector<RandomVariableGeneric<SampleType>> &GetRandomVariableList() const

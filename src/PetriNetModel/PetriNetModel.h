@@ -14,6 +14,12 @@
 #include<functional>
 #include "Statistics.h"
 
+//TODO: fluid support
+//TODO: imm transition
+//TODO: marking dependent properties of arc: multiplicity
+//TODO: marking dependent properties of transition: guard, firing time, weight for imm
+//TODO: sensitivity analysis
+
 namespace PetriNetModel
 {
     using std::string;
